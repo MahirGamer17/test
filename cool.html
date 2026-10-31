@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#080812" />
+  <title>Depth — Scroll Animator</title>
+  <style>
+    :root { color-scheme: dark; --blue:#3b82f6; --violet:#8b5cf6; --ink:#080812; }
+    * { box-sizing:border-box; }
+    html { background:var(--ink); scrollbar-color:#5550a8 #0b0a16; }
+    body { margin:0; font-family:Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; color:#f4f2ff; background:var(--ink); }
+    .stage { position:fixed; inset:0; display:grid; place-items:center; overflow:hidden; perspective:1000px; isolation:isolate; }
+    .stage::before { content:""; position:absolute; inset:-30%; z-index:-2; background:radial-gradient(ellipse at 50% 52%,rgba(77,57,194,.25),transparent 31%),radial-gradient(ellipse at 27% 48%,rgba(28,105,225,.16),transparent 30%),#080812; }
+    .grid { position:absolute; inset:50% -40% -58%; opacity:.32; transform:rotateX(67deg); transform-origin:top; background-image:linear-gradient(rgba(112,104,210,.19) 1px,transparent 1px),linear-gradient(90deg,rgba(112,104,210,.19) 1px,transparent 1px); background-size:58px 58px; mask-image:linear-gradient(to bottom,black,transparent 78%); }
+    .halo { position:absolute; width:min(54vw,620px); aspect-ratio:1; border-radius:50%; border:1px solid rgba(140,128,255,.12); box-shadow:0 0 90px rgba(62,95,255,.09),inset 0 0 90px rgba(113,64,230,.05); }
+    .halo::before,.halo::after { content:""; position:absolute; inset:9%; border:1px solid rgba(105,126,255,.1); border-radius:50%; }
+    .halo::after { inset:19%; border-color:rgba(169,102,255,.1); }
+    .cube-wrap { position:relative; width:clamp(160px,24vw,270px); aspect-ratio:1; transform-style:preserve-3d; will-change:transform; }
+    .cube { position:absolute; inset:0; transform-style:preserve-3d; }
+    .face { position:absolute; inset:0; border:1px solid rgba(184,175,255,.7); background:linear-gradient(145deg,rgba(45,105,255,.82),rgba(106,48,214,.87) 55%,rgba(12,13,30,.96)); box-shadow:inset 0 0 45px rgba(177,166,255,.17),0 0 34px rgba(67,83,255,.15); backface-visibility:hidden; }
+    .face::after { content:""; position:absolute; inset:12%; border:1px solid rgba(255,255,255,.22); }
+    .front { transform:translateZ(calc(clamp(160px,24vw,270px) / 2)); background:linear-gradient(135deg,#162e73,#244ef0 43%,#702fe2); }
+    .back { transform:rotateY(180deg) translateZ(calc(clamp(160px,24vw,270px) / 2)); background:linear-gradient(135deg,#11112c,#442078,#11152e); }
+    .right { transform:rotateY(90deg) translateZ(calc(clamp(160px,24vw,270px) / 2)); background:linear-gradient(160deg,#182044,#345ee9 45%,#47218a); }
+    .left { transform:rotateY(-90deg) translateZ(calc(clamp(160px,24vw,270px) / 2)); background:linear-gradient(145deg,#11152a,#252b75,#6230a8); }
+    .top { transform:rotateX(90deg) translateZ(calc(clamp(160px,24vw,270px) / 2)); background:linear-gradient(135deg,#18234c,#364ff0,#9a45ed); }
+    .bottom { transform:rotateX(-90deg) translateZ(calc(clamp(160px,24vw,270px) / 2)); background:linear-gradient(135deg,#090a16,#17152a,#30215f); }
+    .shadow { position:absolute; width:clamp(210px,31vw,360px); height:90px; left:50%; top:65%; transform:translateX(-50%) rotateX(78deg); border-radius:50%; background:radial-gradient(ellipse,rgba(37,62,237,.43),rgba(103,43,219,.15) 38%,transparent 72%); filter:blur(17px); will-change:transform,opacity; }
+    .topbar { position:fixed; z-index:2; top:0; left:0; right:0; display:flex; justify-content:space-between; align-items:center; padding:26px clamp(22px,5vw,72px); color:#aaa6c5; font-size:11px; letter-spacing:.19em; text-transform:uppercase; }
+    .brand { display:flex; gap:10px; align-items:center; color:#f4f2ff; font-weight:700; }
+    .mark { width:9px; height:9px; background:linear-gradient(135deg,var(--blue),var(--violet)); transform:rotate(45deg); box-shadow:0 0 14px #675cff; }
+    .counter { font-variant-numeric:tabular-nums; }
+    .copy { position:fixed; z-index:1; left:50%; top:73%; transform:translateX(-50%); width:min(90vw,620px); text-align:center; pointer-events:none; }
+    .eyebrow { color:#aaa2ff; font-size:10px; letter-spacing:.3em; text-transform:uppercase; }
+    h1 { margin:12px 0 8px; font-size:clamp(32px,6vw,64px); line-height:1; letter-spacing:-.055em; font-weight:550; }
+    .subtitle { margin:0; color:#a6a2b8; font-size:14px; letter-spacing:.02em; }
+    .scroll-hint { position:fixed; z-index:2; bottom:25px; left:50%; transform:translateX(-50%); display:flex; align-items:center; gap:11px; color:#aaa6c5; font-size:10px; letter-spacing:.2em; text-transform:uppercase; white-space:nowrap; }
+    .mouse { width:17px; height:25px; border:1px solid #777493; border-radius:10px; position:relative; }
+    .mouse::after { content:""; position:absolute; top:5px; left:7px; width:2px; height:5px; border-radius:2px; background:#a39bff; animation:wheel 1.4s ease-in-out infinite; }
+    @keyframes wheel { 0%{transform:translateY(0);opacity:0} 30%{opacity:1} 100%{transform:translateY(8px);opacity:0} }
+    .progress { position:fixed; z-index:3; left:0; bottom:0; width:100%; height:2px; background:rgba(255,255,255,.08); }
+    .progress i { display:block; width:100%; height:100%; transform:scaleX(0); transform-origin:left; background:linear-gradient(90deg,var(--blue),var(--violet)); box-shadow:0 0 12px #7064ff; }
+    .scroll-space { height:500vh; position:relative; z-index:-1; }
+    @media(max-height:620px) { .copy{top:70%} .cube-wrap{width:clamp(135px,22vh,210px)} .front{transform:translateZ(calc(clamp(135px,22vh,210px) / 2))}.back{transform:rotateY(180deg) translateZ(calc(clamp(135px,22vh,210px) / 2))}.right{transform:rotateY(90deg) translateZ(calc(clamp(135px,22vh,210px) / 2))}.left{transform:rotateY(-90deg) translateZ(calc(clamp(135px,22vh,210px) / 2))}.top{transform:rotateX(90deg) translateZ(calc(clamp(135px,22vh,210px) / 2))}.bottom{transform:rotateX(-90deg) translateZ(calc(clamp(135px,22vh,210px) / 2))} }
+    @media(prefers-reduced-motion:reduce) { .mouse::after{animation:none} }
+  </style>
+</head>
+<body>
+  <header class="topbar"><div class="brand"><span class="mark"></span> FORM / 01</div><div class="counter"><span id="step">01</span> &nbsp;—&nbsp; 05</div></header>
+  <main>
+    <section class="stage" aria-label="Scroll-controlled 3D square animation">
+      <div class="grid"></div><div class="halo"></div><div class="shadow" id="shadow"></div>
+      <div class="cube-wrap" id="cubeWrap"><div class="cube" id="cube">
+        <div class="face front"></div><div class="face back"></div><div class="face right"></div><div class="face left"></div><div class="face top"></div><div class="face bottom"></div>
+      </div></div>
+      <div class="copy"><div class="eyebrow" id="eyebrow">A study in depth</div><h1 id="title">Move through space.</h1><p class="subtitle" id="subtitle">Scroll to guide the form forward and back.</p></div>
+      <div class="scroll-hint"><span class="mouse"></span><span>Scroll to explore</span></div>
+      <div class="progress"><i id="progress"></i></div>
+    </section>
+    <div class="scroll-space" aria-hidden="true"></div>
+  </main>
+  <script>
+    (() => {
+      const wrap = document.querySelector('#cubeWrap');
+      const cube = document.querySelector('#cube');
+      const shadow = document.querySelector('#shadow');
+      const progress = document.querySelector('#progress');
+      const step = document.querySelector('#step');
+      const eyebrow = document.querySelector('#eyebrow');
+      const title = document.querySelector('#title');
+      const subtitle = document.querySelector('#subtitle');
+      const scenes = [
+        ['A study in depth','Move through space.','Scroll to guide the form forward and back.'],
+        ['Enter the field','A new dimension.','Blue light traces the edges of a changing form.'],
+        ['Shift the angle','Every side revealed.','Turn through the geometry, one scroll at a time.'],
+        ['Closer to the core','Depth becomes motion.','Keep moving forward, or scroll back to retrace.'],
+        ['Return to stillness','Back to the beginning.','The journey follows your scroll in either direction.']
+      ];
+      let target = 0, current = 0, frame = 0;
+      const clamp = (n, a, b) => Math.max(a, Math.min(b, n));
+      function measure() {
+        const max = document.documentElement.scrollHeight - innerHeight;
+        target = max > 0 ? clamp(scrollY / max, 0, 1) : 0;
+        if (!frame) frame = requestAnimationFrame(draw);
+      }
+      function draw() {
+        frame = 0;
+        current += (target - current) * .11;
+        if (Math.abs(target - current) < .0005) current = target;
+        const p = current;
+        const stage = p * 4;
+        const sceneIndex = Math.min(4, Math.floor(stage));
+        const local = stage - sceneIndex;
+        const scene = scenes[sceneIndex];
+        eyebrow.textContent = scene[0]; title.textContent = scene[1]; subtitle.textContent = scene[2];
+        step.textContent = String(sceneIndex + 1).padStart(2,'0');
+        progress.style.transform = `scaleX(${p})`;
+        const z = -250 + p * 650;
+        const yaw = -28 + p * 790;
+        const pitch = 22 + Math.sin(p * Math.PI * 4) * 18 - p * 42;
+        const roll = -10 + p * 38;
+        const x = Math.sin(p * Math.PI * 2) * 48;
+        const y = Math.cos(p * Math.PI * 2) * 20;
+        wrap.style.transform = `translate3d(${x}px,${y}px,${z}px) rotateZ(${roll}deg) rotateY(${yaw}deg) rotateX(${pitch}deg) scale(${.76 + .5*p})`;
+        cube.style.filter = `brightness(${.78 + .24*Math.sin(p*Math.PI*4)})`;
+        shadow.style.opacity = String(.35 + .55*p);
+        shadow.style.transform = `translateX(-50%) rotateX(78deg) scale(${.7 + p*.8})`;
+        if (current !== target) frame = requestAnimationFrame(draw);
+      }
+      addEventListener('scroll', measure, {passive:true});
+      addEventListener('resize', measure);
+      measure();
+    })();
+  </script>
+</body>
+</html>
